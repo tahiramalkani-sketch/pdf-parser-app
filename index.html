@@ -1,0 +1,473 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Parser - Upload & Analyze PDFs</title>
+  <style>
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      max-width: 900px; 
+      margin: 0 auto; 
+      padding: 20px; 
+      background-color: #f5f6fa;
+    }
+    .container {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2f3542;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .upload-area { 
+      border: 2px dashed #a4b0be; 
+      padding: 30px; 
+      text-align: center; 
+      margin: 20px 0; 
+      border-radius: 10px;
+      background: #f8f9fa;
+      transition: all 0.3s ease;
+    }
+    .upload-area:hover {
+      border-color: #57606f;
+      background: #e9ecef;
+    }
+    .upload-area input[type="file"] {
+      margin: 15px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      width: 100%;
+      max-width: 300px;
+    }
+    button {
+      background: #3742fa;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #2f32e2;
+    }
+    .result { 
+      margin: 20px 0; 
+      padding: 15px; 
+      border-radius: 8px; 
+    }
+    .success { 
+      background: #d1f2eb; 
+      border: 1px solid #a3e4d7; 
+      color: #0e6b56; 
+    }
+    .error { 
+      background: #fadbd8; 
+      border: 1px solid #f5b7b1; 
+      color: #943126; 
+    }
+    details {
+      margin: 10px 0;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      padding: 5px 0;
+    }
+    summary:hover {
+      color: #3742fa;
+    }
+    pre {
+      font-family: 'Consolas', 'Monaco', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 PDF Parser & Analyzer</h1>
+    <p style="text-align: center; color: #57606f; margin-bottom: 30px;">
+      Upload PDF files to extract text content, form fields, and metadata
+    </p>
+    
+    <div class="upload-area">
+      <form id="uploadForm">
+        <h3>📤 Select a PDF file to upload</h3>
+        <input type="file" name="pdf" id="pdfFile" accept="application/pdf" required />
+        <br><br>
+        <button type="submit">🚀 Upload & Parse PDF</button>
+      </form>
+    </div>
+    
+    <div style="text-align:center; margin-top:12px;">
+      <input id="documentIdInput" placeholder="Enter document ID to fetch parsed text" style="width:60%; padding:8px;" />
+      <button id="btnFetchParsed">🔎 Show Parsed Text</button>
+    </div>
+
+    <div id="result"></div>
+  </div>
+  
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const fileInput = document.getElementById('pdfFile');
+      const file = fileInput.files[0];
+      const resultDiv = document.getElementById('result');
+      
+      if (!file) {
+        resultDiv.innerHTML = '<div class="error">Please select a file</div>';
+        return;
+      }
+      
+      if (file.type !== 'application/pdf') {
+        resultDiv.innerHTML = '<div class="error">Please select a PDF file</div>';
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('pdf', file);
+      
+      try {
+        resultDiv.innerHTML = '<div>Uploading...</div>';
+        
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.status === 'success') {
+          resultDiv.innerHTML = `
+            <div class="success">
+              <h3>✅ Upload Successful!</h3>
+              <p><strong>Document ID:</strong> <span style="user-select:all;">${data.documentId}</span></p>c
+              <p><strong>Original Name:</strong> ${data.originalName}</p>
+              <p><strong>Stored As:</strong> ${data.storedName}</p>
+              <p><strong>Size:</strong> ${(data.size / 1024).toFixed(1)} KB</p>
+              <p><strong>Upload Date:</strong> ${new Date(data.uploadDate).toLocaleString()}</p>
+            </div>`;
+        } else {
+          resultDiv.innerHTML = `<div class="error">❌ Error: ${data.error || 'Upload failed'}</div>`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="error">❌ Upload failed: ${error.message}</div>`;
+      }
+    });
+    
+    // Removed unused parsePdf/getFullDocument handlers to keep UI clean.
+
+    // Fetch parsed JSON for a document and display it in #result
+    document.getElementById('btnFetchParsed').addEventListener('click', async function () {
+      const id = document.getElementById('documentIdInput').value.trim();
+      const resultDiv = document.getElementById('result');
+      if (!id) {
+        resultDiv.innerHTML = '<div class="error">Enter a document ID</div>';
+        return;
+      }
+
+      try {
+        resultDiv.innerHTML = '<div>Fetching parsed data...</div>';
+        const resp = await fetch(`/api/documents/${encodeURIComponent(id)}/parsed-text`);
+        const data = await resp.json();
+        if (!resp.ok) {
+          resultDiv.innerHTML = `<div class="error">Error: ${data.error || 'Failed to fetch'}</div>`;
+          return;
+        }
+
+        resultDiv.innerHTML = `<div class="success"><h3>Parsed Data (Document: ${data.documentId})</h3><pre style="white-space:pre-wrap; text-align:left;">${JSON.stringify(data.parsedData, null, 2)}</pre></div>`;
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="error">Request failed: ${err.message}</div>`;
+      }
+    });
+  </script>
+</body>
+</html> -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Parser & Data Manager</title>
+  <style>
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      max-width: 900px; 
+      margin: 0 auto; 
+      padding: 20px; 
+      background-color: #f5f6fa;
+    }
+    .container {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1, h3 {
+      color: #2f3542;
+      text-align: center;
+    }
+    h3 { text-align: left; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; margin-top: 30px; }
+    
+    .section { margin-bottom: 30px; }
+
+    /* Upload Area */
+    .upload-area { 
+      border: 2px dashed #a4b0be; 
+      padding: 30px; 
+      text-align: center; 
+      border-radius: 10px;
+      background: #f8f9fa;
+      transition: all 0.3s ease;
+    }
+    .upload-area:hover { border-color: #57606f; background: #e9ecef; }
+    
+    /* Inputs & Textareas */
+    input[type="text"], input[type="file"], textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      box-sizing: border-box;
+    }
+    textarea {
+      font-family: 'Consolas', monospace;
+      min-height: 100px;
+      font-size: 13px;
+    }
+
+    /* Buttons */
+    .btn-group { display: flex; gap: 10px; margin-top: 5px; }
+    
+    button {
+      background: #3742fa;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.3s ease;
+      flex: 1;
+    }
+    button:hover { background: #2f32e2; }
+    button.secondary { background: #2ed573; }
+    button.secondary:hover { background: #26af61; }
+    button.dark { background: #2f3542; }
+    button.dark:hover { background: #57606f; }
+
+    /* Results */
+    .result { 
+      margin-top: 15px; 
+      padding: 15px; 
+      border-radius: 8px; 
+      display: none; /* Hidden by default */
+      overflow-x: auto;
+    }
+    .success { background: #d1f2eb; border: 1px solid #a3e4d7; color: #0e6b56; }
+    .error { background: #fadbd8; border: 1px solid #f5b7b1; color: #943126; }
+    .info { background: #eccc68; border: 1px solid #ffa502; color: #5c4004; }
+    
+    pre { margin: 0; white-space: pre-wrap; text-align: left; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 PDF Parser & Analyzer</h1>
+
+    <!-- SECTION 1: UPLOAD -->
+    <div class="section">
+      <h3>1. Upload PDF</h3>
+      <div class="upload-area">
+        <form id="uploadForm">
+          <input type="file" name="pdf" id="pdfFile" accept="application/pdf" required />
+          <button type="submit">🚀 Upload & Parse PDF</button>
+        </form>
+      </div>
+      <div id="uploadResult" class="result"></div>
+    </div>
+    
+    <!-- SECTION 2: VIEW DATA -->
+    <div class="section">
+      <h3>2. Inspect Document Data</h3>
+      <p style="color:#666; font-size:0.9em;">Enter ID to view parsed text or combined user data.</p>
+      
+      <input id="documentIdInput" placeholder="Enter document ID (e.g. 64b...)" />
+      
+      <div class="btn-group">
+        <button id="btnFetchParsed">🔎 Get Parsed Text</button>
+        <button id="btnFetchCombined" class="secondary">🔗 Get Combined Data</button>
+      </div>
+      
+      <div id="fetchResult" class="result"></div>
+    </div>
+
+    <!-- SECTION 3: SUBMIT USER DATA -->
+    <div class="section">
+      <h3>3. Submit User-Filled Data</h3>
+      <p style="color:#666; font-size:0.9em;">Simulate a user filling out a form for a specific PDF.</p>
+      
+      <label><strong>Document ID:</strong></label>
+      <input id="fillDocId" placeholder="Paste Document ID here" />
+      
+      <label><strong>Data (JSON Format):</strong></label>
+      <textarea id="fillDataJson" placeholder='{"clientName": "John Doe", "invoiceTotal": 500}'></textarea>
+      
+      <button id="btnSaveFilled" class="dark">💾 Save User Data</button>
+      
+      <div id="saveResult" class="result"></div>
+    </div>
+
+  </div>
+  
+  <script>
+    // --- UTILITY: Update UI with results ---
+    function updateUI(elementId, type, content) {
+      const el = document.getElementById(elementId);
+      el.style.display = 'block';
+      el.className = `result ${type}`;
+      
+      if(type === 'success' && typeof content === 'object') {
+        el.innerHTML = `<pre>${JSON.stringify(content, null, 2)}</pre>`;
+      } else {
+        el.innerHTML = content;
+      }
+    }
+
+    // --- 1. UPLOAD LOGIC ---
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const file = document.getElementById('pdfFile').files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('pdf', file);
+      
+      updateUI('uploadResult', 'info', 'Uploading...');
+
+      try {
+        const response = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+        
+        if (response.ok && data.status === 'success') {
+          // Auto-fill the IDs for the other sections
+          document.getElementById('documentIdInput').value = data.documentId;
+          document.getElementById('fillDocId').value = data.documentId;
+
+          updateUI('uploadResult', 'success', `✅ <strong>Upload Success!</strong><br>ID: ${data.documentId}`);
+        } else {
+          updateUI('uploadResult', 'error', `❌ Error: ${data.error}`);
+        }
+      } catch (error) {
+        updateUI('uploadResult', 'error', `❌ Upload failed: ${error.message}`);
+      }
+    });
+
+    // --- 2a. GET PARSED TEXT ---
+    document.getElementById('btnFetchParsed').addEventListener('click', async function () {
+      const id = document.getElementById('documentIdInput').value.trim();
+      if (!id) return alert("Please enter a Document ID");
+
+      updateUI('fetchResult', 'info', 'Fetching parsed text...');
+
+      try {
+        // Calls: router.get('/documents/:id/parsed-text', ctrl.getParsedText);
+        const resp = await fetch(`/api/documents/${encodeURIComponent(id)}/parsed-text`);
+        const data = await resp.json();
+        
+        if (resp.ok) updateUI('fetchResult', 'success', data);
+        else updateUI('fetchResult', 'error', `Error: ${data.error}`);
+      } catch (err) {
+        updateUI('fetchResult', 'error', err.message);
+      }
+    });
+
+    // --- 2b. GET COMBINED DATA (New) ---
+    document.getElementById('btnFetchCombined').addEventListener('click', async function () {
+      const id = document.getElementById('documentIdInput').value.trim();
+      if (!id) return alert("Please enter a Document ID");
+
+      updateUI('fetchResult', 'info', 'Fetching combined data...');
+
+      try {
+        // Calls: router.get('/documents/:id/combined', ctrl.getCombined);
+        const resp = await fetch(`/api/documents/${encodeURIComponent(id)}/combined`);
+        const data = await resp.json();
+        
+        if (resp.ok) updateUI('fetchResult', 'success', data);
+        else updateUI('fetchResult', 'error', `Error: ${data.error}`);
+      } catch (err) {
+        updateUI('fetchResult', 'error', err.message);
+      }
+    });
+
+    // --- 3. SAVE USER FILLED DATA (New) ---
+    document.getElementById('btnSaveFilled').addEventListener('click', async function () {
+      const documentId = document.getElementById('fillDocId').value.trim();
+      const jsonStr = document.getElementById('fillDataJson').value.trim();
+
+      if (!documentId) return alert("Document ID is required");
+      if (!jsonStr) return alert("JSON Data is required");
+
+      // Validate JSON before sending
+      let filledData;
+      try {
+        filledData = JSON.parse(jsonStr);
+      } catch (e) {
+        return updateUI('saveResult', 'error', '❌ Invalid JSON format');
+      }
+
+      updateUI('saveResult', 'info', 'Saving data...');
+
+      try {
+        // Calls: router.post('/user-filled-data', controller.saveUserFilled);
+        const resp = await fetch('/api/user-filled-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ documentId, filledData })
+        });
+        
+        const data = await resp.json();
+        
+        if (resp.ok && data.status === 'success') {
+          updateUI('saveResult', 'success', `✅ <strong>Saved!</strong><br>Record ID: ${data.id}`);
+        } else {
+          updateUI('saveResult', 'error', `Error: ${data.error}`);
+        }
+      } catch (err) {
+        updateUI('saveResult', 'error', err.message);
+      }
+    });
+  </script>
+</body>
+</html>
