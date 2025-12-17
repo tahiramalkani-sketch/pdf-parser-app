@@ -206,3 +206,26 @@ exports.deleteDocument = async (req, res) => {
     res.status(500).json({ status: 'error', error: 'Failed to delete document', details: err.message });
   }
 };
+
+// === NEW API: Get All IDs (Lightweight) ===
+exports.getAllDocumentIds = async (req, res) => {
+  try {
+    // Only fetch _id and originalFilename, sorted by newest
+    const documents = await SimplePdfDocument.find({})
+      .select('_id originalFilename uploadDate')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      status: 'success',
+      count: documents.length,
+      data: documents
+    });
+  } catch (err) {
+    console.error('Error fetching document ID list:', err);
+    res.status(500).json({ 
+      status: 'error', 
+      error: 'Failed to fetch document list', 
+      details: err.message 
+    });
+  }
+};
